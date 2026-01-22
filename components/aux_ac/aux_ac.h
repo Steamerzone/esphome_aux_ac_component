@@ -2444,10 +2444,8 @@ namespace esphome
                         else
                         {
                             int16_t delta_temp = _current_ac_state.temp_ambient - _current_ac_state.temp_inbound;
-                            if (delta_temp > 0 && delta_temp < 2 &&
-                                (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ||
-                                 _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE ||
-                                 _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE))
+                            if (delta_temp > 0 && delta_temp < 1 &&
+                                (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ))
                             {
                                 this->action = climate::CLIMATE_ACTION_DRYING; // ОСУШЕНИЕ
                             }
@@ -2464,8 +2462,7 @@ namespace esphome
                     }
                     else if (millis() - timerInv > 2000)
                     { // инвертор включен, но нужно дождаться реакции на его включение
-                        if (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ||
-                            _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE)
+                        if (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF )
                         { // медленное вращение
                             if (_current_ac_state.temp_ambient - _current_ac_state.temp_inbound > 0)
                             {                                                  // холодный радиатор
@@ -2479,11 +2476,11 @@ namespace esphome
                         else
                         {
                             int16_t delta_temp = _current_ac_state.temp_ambient - _current_ac_state.temp_inbound;
-                            if (delta_temp < -2)
+                            if (delta_temp < -1)
                             { // входящая температура выше комнатной, быстрый фен - ОБОГРЕВ
                                 this->action = climate::CLIMATE_ACTION_HEATING;
                             }
-                            else if (delta_temp > 2)
+                            else if (delta_temp > 1)
                             { // ниже, быстрый фен - ОХЛАЖДЕНИЕ
                                 this->action = climate::CLIMATE_ACTION_COOLING;
                             }
@@ -2517,20 +2514,18 @@ namespace esphome
                     else
                     {
                         int16_t delta_temp = _current_ac_state.temp_ambient - _current_ac_state.temp_inbound; // разность температуры между комнатной и входящей
-                        if (delta_temp > 0 && delta_temp < 2 &&
-                            (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ||
-                             _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE))
+                        if (delta_temp > 0 && delta_temp < 1 &&
+                            (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ))
                         {
                             this->action = climate::CLIMATE_ACTION_DRYING; // ОСУШЕНИЕ
                         }
-                        else if (_current_ac_state.realFanSpeed != AC_REAL_FAN_OFF &&
-                                 _current_ac_state.realFanSpeed != AC_REAL_FAN_MUTE)
+                        else if (_current_ac_state.realFanSpeed != AC_REAL_FAN_OFF)
                         {
-                            if (delta_temp > 2)
+                            if (delta_temp > 1)
                             {
                                 this->action = climate::CLIMATE_ACTION_COOLING;
                             }
-                            else if (delta_temp < -2)
+                            else if (delta_temp < -1)
                             {
                                 this->action = climate::CLIMATE_ACTION_HEATING;
                             }
