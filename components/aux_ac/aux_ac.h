@@ -15,6 +15,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/version.h"
 
 #ifndef USE_ARDUINO
 using String = std::string;
@@ -43,6 +44,9 @@ namespace esphome
         using climate::ClimatePreset;
         using climate::ClimateSwingMode;
         using climate::ClimateTraits;
+        using climate::ClimateModeMask;
+        using climate::ClimateSwingModeMask;
+        using climate::ClimatePresetMask;
 
 //****************************************************************************************************************************************************
 //**************************************************** Packet logger configuration *******************************************************************
@@ -88,69 +92,50 @@ namespace esphome
         class Constants
         {
         public:
-            static const std::string AC_FIRMWARE_VERSION;
+            // AUX_AC_FIRMWARE_VERSION is defined by the ESPHome code generator at compile time
+            static constexpr const char* AC_FIRMWARE_VERSION = AUX_AC_FIRMWARE_VERSION;
 
-            static const std::string MUTE;
-            static const std::string TURBO;
-            static const std::string CLEAN;
-            static const std::string HEALTH;
-            static const std::string ANTIFUNGUS;
+            // custom fan modes
+            static constexpr const char* MUTE = "mute";
+            static constexpr const char* TURBO = "turbo";
+
+            // custom presets
+            static constexpr const char* CLEAN = "Clean";
+            static constexpr const char* HEALTH = "Health";
+            static constexpr const char* ANTIFUNGUS = "Antifungus";
 
             /// минимальная и максимальная температура в градусах Цельсия, ограничения самого кондиционера
-            static const float AC_MIN_TEMPERATURE;
-            static const float AC_MAX_TEMPERATURE;
-            /// шаг изменения целевой температуры, градусы Цельсия
-            static const float AC_TEMPERATURE_STEP;
+            static constexpr const float AC_MIN_TEMPERATURE = 16.0;
+            static constexpr const float AC_MAX_TEMPERATURE = 32.0;
+            /// Target temperature step, Celsius degrees
+            static constexpr const float AC_TEMPERATURE_STEP = 0.5;
 
-            /// минимальное и максимальное значение мощности инвертора при установке ограничений
-            static const uint8_t AC_MIN_INVERTER_POWER_LIMIT;
-            static const uint8_t AC_MAX_INVERTER_POWER_LIMIT;
+            /// Minimal and maximal values of invertor power
+            // AUX_AC_MIN_INVERTER_POWER_LIMIT and AUX_AC_MAX_INVERTER_POWER_LIMIT are defined by the ESPHome code generator at compile time
+            static constexpr const uint8_t AC_MIN_INVERTER_POWER_LIMIT = AUX_AC_MIN_INVERTER_POWER_LIMIT;
+            static constexpr const uint8_t AC_MAX_INVERTER_POWER_LIMIT = AUX_AC_MAX_INVERTER_POWER_LIMIT;
 
             // периодичность опроса кондиционера на предмет изменения состояния
             // изменение параметров с пульта не сообщается в UART, поэтому надо запрашивать состояние, чтобы быть в курсе
             // значение в миллисекундах
-            static const uint32_t AC_STATES_REQUEST_INTERVAL;
+            static constexpr const uint32_t AC_STATES_REQUEST_INTERVAL = 7000;
 
             // границы допустимого диапазона таймаута загрузки пакета
             // таймаут загрузки - через такое количиство миллисекунд конечный автомат перейдет из
             // состояния ACSM_RECEIVING_PACKET в ACSM_IDLE, если пакет не будет загружен
-            static const uint32_t AC_PACKET_TIMEOUT_MAX;
-            static const uint32_t AC_PACKET_TIMEOUT_MIN;
+            // По расчетам выходит:
+            //      - получение и обработка посимвольно не должна длиться дольше 600 мсек.
+            //      - получение и обработка пакетов целиком не должна длиться дольше 150 мсек.
+            // Мы будем обрабатывать пакетами, поэтому 150.
+            // Растягивать приём пакетов очередью команд нельзя, так как кондиционер иногда посылает
+            // информационные пакеты без запроса. Такие пакеты будут рушить последовательность команд,
+            // команды будут теряться. От такой коллизии мы не защищены в любом случае. Но чем меньше таймаут,
+            // тем меньше шансов на коллизию.
+            // Из этих соображений выбраны границы диапазона (_MIN и _MAX значения).
+            // AUX_AC_PACKET_TIMEOUT_MAX and AUX_AC_PACKET_TIMEOUT_MIN are defined by the ESPHome code generator at compile time
+            static constexpr const uint32_t AC_PACKET_TIMEOUT_MAX = AUX_AC_PACKET_TIMEOUT_MAX;
+            static constexpr const uint32_t AC_PACKET_TIMEOUT_MIN = AUX_AC_PACKET_TIMEOUT_MIN;
         };
-
-        // AUX_AC_FIRMWARE_VERSION will be defined by the ESPHome code generator at compile time
-        const std::string Constants::AC_FIRMWARE_VERSION = AUX_AC_FIRMWARE_VERSION;
-
-        // custom fan modes
-        const std::string Constants::MUTE = "mute";
-        const std::string Constants::TURBO = "turbo";
-
-        // custom presets
-        const std::string Constants::CLEAN = "Clean";
-        const std::string Constants::HEALTH = "Health";
-        const std::string Constants::ANTIFUNGUS = "Antifungus";
-
-        // params
-        const float Constants::AC_MIN_TEMPERATURE = 16.0;
-        const float Constants::AC_MAX_TEMPERATURE = 32.0;
-        const float Constants::AC_TEMPERATURE_STEP = 0.5;
-        // AUX_AC_MIN_INVERTER_POWER_LIMIT and AUX_AC_MAX_INVERTER_POWER_LIMIT will be defined by the ESPHome code generator at compile time
-        const uint8_t Constants::AC_MIN_INVERTER_POWER_LIMIT = AUX_AC_MIN_INVERTER_POWER_LIMIT;
-        const uint8_t Constants::AC_MAX_INVERTER_POWER_LIMIT = AUX_AC_MAX_INVERTER_POWER_LIMIT;
-        const uint32_t Constants::AC_STATES_REQUEST_INTERVAL = 7000;
-        // таймаут загрузки пакета
-        // По расчетам выходит:
-        //      - получение и обработка посимвольно не должна длиться дольше 600 мсек.
-        //      - получение и обработка пакетов целиком не должна длиться дольше 150 мсек.
-        // Мы будем обрабатывать пакетами, поэтому 150.
-        // Растягивать приём пакетов очередью команд нельзя, так как кондиционер иногда посылает
-        // информационные пакеты без запроса. Такие пакеты будут рушить последовательность команд,
-        // команды будут теряться. От такой коллизии мы не защищены в любом случае. Но чем меньше таймаут,
-        // тем меньше шансов на коллизию.
-        // Из этих соображений выбраны границы диапазона (_MIN и _MAX значения).
-        // AUX_AC_PACKET_TIMEOUT_MAX and AUX_AC_PACKET_TIMEOUT_MIN will be defined by the ESPHome code generator at compile time
-        const uint32_t Constants::AC_PACKET_TIMEOUT_MAX = AUX_AC_PACKET_TIMEOUT_MAX;
-        const uint32_t Constants::AC_PACKET_TIMEOUT_MIN = AUX_AC_PACKET_TIMEOUT_MIN;
 
         //****************************************************************************************************************************************************
         //********************************************************* ОСНОВНЫЕ СТРУКТУРЫ ***********************************************************************
@@ -852,12 +837,11 @@ namespace esphome
             // как "в простое" (IDLE)
             bool _is_inverter = false;
 
-            // поддерживаемые кондиционером опции
-            std::set<ClimateMode> _supported_modes{};
-            std::set<ClimateSwingMode> _supported_swing_modes{};
-            std::set<ClimatePreset> _supported_presets{};
-            std::set<std::string> _supported_custom_presets{};
-            std::set<std::string> _supported_custom_fan_modes{};
+            ClimateModeMask _supported_modes{};
+            ClimateSwingModeMask _supported_swing_modes{};
+            ClimatePresetMask _supported_presets{};
+            std::vector<const char *> _supported_custom_fan_modes{};
+            std::vector<const char *> _supported_custom_presets{};
 
             // The capabilities of the climate device
             // Шаблон параметров отображения виджета
@@ -1463,13 +1447,12 @@ namespace esphome
                         small_info_body = (packet_small_info_body_t *)(_inPacket.body);
 
                         // в малом пакете передается большое количество установленных пользователем параметров работы
-                        // stateFloat = 8 + (small_info_body->target_temp_int_and_v_louver >> 3) + 0.5 * (float)(small_info_body->target_temp_frac >> 7);
-                        stateFloat = 8.0 + (float)(small_info_body->target_temp_int) + ((small_info_body->target_temp_frac_bool) ? 0.5 : 0.0);
+                        // stateFloat = 8.0 + (float)(small_info_body->target_temp_int) + ((small_info_body->target_temp_frac_bool) ? 0.5 : 0.0);
+                        stateFloat = 8.0 + (float)(small_info_body->target_temp_int) + (small_info_body->target_temp_frac_dec / 10.0);
                         stateChangedFlag = stateChangedFlag || (_current_ac_state.temp_target != stateFloat);
                         _current_ac_state.temp_target = stateFloat;
                         _current_ac_state.temp_target_matter = true;
 
-                        // stateByte = small_info_body->target_temp_int_and_v_louver & AC_LOUVERV_MASK;
                         stateByte = small_info_body->v_louver;
                         stateChangedFlag = stateChangedFlag || (_current_ac_state.louver.louver_v != (ac_louver_V)stateByte);
                         _current_ac_state.louver.louver_v = (ac_louver_V)stateByte;
@@ -1933,6 +1916,7 @@ namespace esphome
                     {
                         pack->body[4] = (pack->body[4] & ~AC_TEMP_TARGET_FRAC_PART_MASK);
                     }
+                    pack->body[14] = ((uint8_t)(cmd->temp_target * 10)) % 10;
                 }
 
                 // значение ограничения мощности инвертора
@@ -2391,11 +2375,11 @@ namespace esphome
 
                 // первоначальная инициализация
                 this->preset = climate::CLIMATE_PRESET_NONE;
-                this->custom_preset = (std::string) "";
+                this->clear_custom_preset_();
+                this->clear_custom_fan_mode_();
                 this->mode = climate::CLIMATE_MODE_OFF;
                 this->action = climate::CLIMATE_ACTION_IDLE;
                 this->fan_mode = climate::CLIMATE_FAN_LOW;
-                this->custom_fan_mode = (std::string) "";
             };
 
             float get_setup_priority() const override { return esphome::setup_priority::DATA; }
@@ -2415,6 +2399,22 @@ namespace esphome
 
             bool get_hw_initialized() { return _hw_initialized; };
             bool get_has_connection() { return _has_connection; };
+
+            // --- Helper functions for consistent louver interpretation ---
+            // Some AUX-based models use 0x20 for "horizontal off", while others (e.g., ROVEX, Royal Clima) use 0xE0.
+            // These helpers normalize those differences so swing detection stays consistent.
+            // Keeping both encodings here replaces the old workaround that caused HA to jump back to OFF
+            // when horizontal was swinging and vertical was fixed.
+
+            static inline bool is_h_off(uint8_t h) {
+                return (h == AC_LOUVERH_OFF_AUX) || (h == AC_LOUVERH_OFF_ALTERNATIVE);
+            }
+            static inline bool is_h_swing(uint8_t h) {
+                return (h == AC_LOUVERH_SWING_LEFTRIGHT);
+            }
+            static inline bool is_v_swing(uint8_t v) {
+                return (v == AC_LOUVERV_SWING_UPDOWN);
+            }
 
             // возвращает, есть ли елементы в последовательности команд
             bool hasSequence()
@@ -2445,7 +2445,9 @@ namespace esphome
                         {
                             int16_t delta_temp = _current_ac_state.temp_ambient - _current_ac_state.temp_inbound;
                             if (delta_temp > 0 && delta_temp < 2 &&
-                                (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ))
+                                (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ||
+                                 _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE ||
+                                 _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE))
                             {
                                 this->action = climate::CLIMATE_ACTION_DRYING; // ОСУШЕНИЕ
                             }
@@ -2462,7 +2464,8 @@ namespace esphome
                     }
                     else if (millis() - timerInv > 2000)
                     { // инвертор включен, но нужно дождаться реакции на его включение
-                        if (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF)
+                        if (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ||
+                            _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE)
                         { // медленное вращение
                             if (_current_ac_state.temp_ambient - _current_ac_state.temp_inbound > 0)
                             {                                                  // холодный радиатор
@@ -2476,11 +2479,11 @@ namespace esphome
                         else
                         {
                             int16_t delta_temp = _current_ac_state.temp_ambient - _current_ac_state.temp_inbound;
-                            if (delta_temp < -1)
+                            if (delta_temp < -2)
                             { // входящая температура выше комнатной, быстрый фен - ОБОГРЕВ
                                 this->action = climate::CLIMATE_ACTION_HEATING;
                             }
-                            else if (delta_temp > 1)
+                            else if (delta_temp > 2)
                             { // ниже, быстрый фен - ОХЛАЖДЕНИЕ
                                 this->action = climate::CLIMATE_ACTION_COOLING;
                             }
@@ -2514,18 +2517,20 @@ namespace esphome
                     else
                     {
                         int16_t delta_temp = _current_ac_state.temp_ambient - _current_ac_state.temp_inbound; // разность температуры между комнатной и входящей
-                        if (delta_temp > 0 && delta_temp < 1 &&
-                            (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ))
+                        if (delta_temp > 0 && delta_temp < 2 &&
+                            (_current_ac_state.realFanSpeed == AC_REAL_FAN_OFF ||
+                             _current_ac_state.realFanSpeed == AC_REAL_FAN_MUTE))
                         {
                             this->action = climate::CLIMATE_ACTION_DRYING; // ОСУШЕНИЕ
                         }
-                        else if (_current_ac_state.realFanSpeed != AC_REAL_FAN_OFF )
+                        else if (_current_ac_state.realFanSpeed != AC_REAL_FAN_OFF &&
+                                 _current_ac_state.realFanSpeed != AC_REAL_FAN_MUTE)
                         {
-                            if (delta_temp > 1)
+                            if (delta_temp > 2)
                             {
                                 this->action = climate::CLIMATE_ACTION_COOLING;
                             }
-                            else if (delta_temp < -1)
+                            else if (delta_temp < -2)
                             {
                                 this->action = climate::CLIMATE_ACTION_HEATING;
                             }
@@ -2614,15 +2619,13 @@ namespace esphome
                 switch (_current_ac_state.fanTurbo)
                 {
                 case AC_FANTURBO_ON:
-                    // if ((_current_ac_state.mode == AC_MODE_HEAT) || (_current_ac_state.mode == AC_MODE_COOL)) {
-                    this->custom_fan_mode = Constants::TURBO;
-                    //}
+                    this->set_custom_fan_mode_(Constants::TURBO);
                     break;
 
                 case AC_FANTURBO_OFF:
                 default:
-                    if (this->custom_fan_mode == Constants::TURBO)
-                        this->custom_fan_mode = (std::string) "";
+                    if (this->has_custom_fan_mode() && (this->get_custom_fan_mode() == Constants::TURBO))
+                        this->clear_custom_fan_mode_();
                     break;
                 }
 
@@ -2634,15 +2637,13 @@ namespace esphome
                 switch (_current_ac_state.fanMute)
                 {
                 case AC_FANMUTE_ON:
-                    // if (_current_ac_state.mode == AC_MODE_FAN) {
-                    this->custom_fan_mode = Constants::MUTE;
-                    //}
+                    this->set_custom_fan_mode_(Constants::MUTE);
                     break;
 
                 case AC_FANMUTE_OFF:
                 default:
-                    if (this->custom_fan_mode == Constants::MUTE)
-                        this->custom_fan_mode = (std::string) "";
+                    if (this->has_custom_fan_mode() && (this->get_custom_fan_mode() == Constants::MUTE))
+                        this->clear_custom_fan_mode_();
                     break;
                 }
 
@@ -2654,13 +2655,13 @@ namespace esphome
                 if (_current_ac_state.health == AC_HEALTH_ON &&
                     _current_ac_state.power == AC_POWER_ON)
                 {
-                    this->custom_preset = Constants::HEALTH;
+                    this->set_custom_preset_(Constants::HEALTH);
                 }
-                else if (this->custom_preset == Constants::HEALTH)
+                // AC_HEALTH_OFF
+                // только в том случае, если до этого пресет был установлен
+                else if (this->has_custom_preset() && (this->get_custom_preset() == Constants::HEALTH))
                 {
-                    // AC_HEALTH_OFF
-                    // только в том случае, если до этого пресет был установлен
-                    this->custom_preset = (std::string) "";
+                    this->clear_custom_preset_();
                 }
 
                 _debugMsg(F("Climate HEALTH preset: %i"), ESPHOME_LOG_LEVEL_VERBOSE, __LINE__, _current_ac_state.health);
@@ -2689,13 +2690,13 @@ namespace esphome
                 if (_current_ac_state.clean == AC_CLEAN_ON &&
                     _current_ac_state.power == AC_POWER_OFF)
                 {
-                    this->custom_preset = Constants::CLEAN;
+                    this->set_custom_preset_(Constants::CLEAN);
                 }
-                else if (this->custom_preset == Constants::CLEAN)
+                // AC_CLEAN_OFF
+                // только в том случае, если до этого пресет был установлен
+                else if (this->has_custom_preset() && (this->get_custom_preset() == Constants::CLEAN))
                 {
-                    // AC_CLEAN_OFF
-                    // только в том случае, если до этого пресет был установлен
-                    this->custom_preset = (std::string) "";
+                    this->clear_custom_preset_();
                 }
 
                 _debugMsg(F("Climate CLEAN preset: %i"), ESPHOME_LOG_LEVEL_VERBOSE, __LINE__, _current_ac_state.clean);
@@ -2719,43 +2720,38 @@ namespace esphome
                 switch (_current_ac_state.mildew)
                 {
                 case AC_MILDEW_ON:
-                    this->custom_preset = Constants::ANTIFUNGUS;
+                    this->set_custom_preset_(Constants::ANTIFUNGUS);
                     break;
 
                 case AC_MILDEW_OFF:
                 default:
-                    if (this->custom_preset == Constants::ANTIFUNGUS)
-                        this->custom_preset = (std::string) "";
-                    break;
+                    if (this->has_custom_preset() && (this->get_custom_preset() == Constants::ANTIFUNGUS))
+                        this->clear_custom_preset_();
                 }
 
                 _debugMsg(F("Climate ANTIFUNGUS preset: %i"), ESPHOME_LOG_LEVEL_VERBOSE, __LINE__, _current_ac_state.mildew);
 
                 /*************************** LOUVERs ***************************/
                 this->swing_mode = climate::CLIMATE_SWING_OFF;
-                if (_current_ac_state.power == AC_POWER_ON)
-                {
-                    if (_current_ac_state.louver.louver_h == AC_LOUVERH_SWING_LEFTRIGHT && _current_ac_state.louver.louver_v == AC_LOUVERV_OFF)
-                    {
-                        this->swing_mode = climate::CLIMATE_SWING_HORIZONTAL;
-                    }
-                    else if (_current_ac_state.louver.louver_h == AC_LOUVERH_OFF_AUX && _current_ac_state.louver.louver_v == AC_LOUVERV_SWING_UPDOWN)
-                    {
-                        // TODO: КОСТЫЛЬ!
-                        this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
-                    }
-                    else if (_current_ac_state.louver.louver_h == AC_LOUVERH_OFF_ALTERNATIVE && _current_ac_state.louver.louver_v == AC_LOUVERV_SWING_UPDOWN)
-                    {
-                        // TODO: КОСТЫЛЬ!
-                        //       временно сделал так. Сделать нормально - это надо подумать.
-                        //       На AUX и многих других марках выключенный режим горизонтальных жалюзи равен 0x20, а на ROVEX и Royal Clima 0xE0
-                        //       Из-за этого происходил сброс на OFF во фронтенде Home Assistant. Пришлось городить это.
-                        //       Надо как-то изящнее решить эту историю
-                        this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
-                    }
-                    else if (_current_ac_state.louver.louver_h == AC_LOUVERH_SWING_LEFTRIGHT && _current_ac_state.louver.louver_v == AC_LOUVERV_SWING_UPDOWN)
-                    {
+                
+                if (_current_ac_state.power == AC_POWER_ON) {
+                    const uint8_t h = _current_ac_state.louver.louver_h;
+                    const uint8_t v = _current_ac_state.louver.louver_v;
+                
+                    const bool hSwing = is_h_swing(h);
+                    const bool hOff   = is_h_off(h);
+                    const bool vSwing = is_v_swing(v);
+                
+                    if (hSwing && vSwing) {
                         this->swing_mode = climate::CLIMATE_SWING_BOTH;
+                    } else if (hSwing) {
+                        // Horizontal swings even if vertical is fixed to a position
+                        this->swing_mode = climate::CLIMATE_SWING_HORIZONTAL;
+                    } else if (vSwing && hOff) {
+                        // Vertical swings while horizontal is not swinging
+                        this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
+                    } else {
+                        this->swing_mode = climate::CLIMATE_SWING_OFF;
                     }
                 }
 
@@ -2816,9 +2812,9 @@ namespace esphome
                     {
                         state_str += "SLEEP";
                     }
-                    else if (this->custom_preset.has_value() && this->custom_preset.value().length() > 0)
+                    else if (this->has_custom_preset())
                     {
-                        state_str += this->custom_preset.value().c_str();
+                        state_str += this->get_custom_preset();
                     }
                     else
                     {
@@ -2838,7 +2834,7 @@ namespace esphome
             void dump_config()
             {
                 ESP_LOGCONFIG(TAG, "AUX HVAC:");
-                ESP_LOGCONFIG(TAG, "  [x] Firmware version: %s", Constants::AC_FIRMWARE_VERSION.c_str());
+                ESP_LOGCONFIG(TAG, "  [x] Firmware version: %s", Constants::AC_FIRMWARE_VERSION);
                 ESP_LOGCONFIG(TAG, "  [x] Period: %" PRIu32 "ms", this->get_period());
                 ESP_LOGCONFIG(TAG, "  [x] Show action: %s", TRUEFALSE(this->get_show_action()));
                 ESP_LOGCONFIG(TAG, "  [x] Display inverted: %s", TRUEFALSE(this->get_display_inverted()));
@@ -3009,45 +3005,27 @@ namespace esphome
                         break;
                     }
                 }
-                else if (call.get_custom_fan_mode().has_value())
+                else if (call.has_custom_fan_mode())
                 {
-                    std::string customfanmode = *call.get_custom_fan_mode();
-
-                    if (customfanmode == Constants::TURBO)
+                    auto custom_fan_mode = call.get_custom_fan_mode();
+                    if (custom_fan_mode == Constants::TURBO)
                     {
                         // TURBO fan mode is suitable in COOL and HEAT modes.
                         // Other modes don't accept TURBO fan mode.
-                        /*
-                        if (       cmd.mode == AC_MODE_COOL
-                                or cmd.mode == AC_MODE_HEAT
-                                or _current_ac_state.mode == AC_MODE_COOL
-                                or _current_ac_state.mode == AC_MODE_HEAT) {
-                        */
                         hasCommand = true;
                         cmd.fanTurbo = AC_FANTURBO_ON;
-                        cmd.fanMute = AC_FANMUTE_OFF; // зависимость от fanturbo
-                        this->custom_fan_mode = customfanmode;
-                        /*
-                        } else {
-                            _debugMsg(F("TURBO fan mode is suitable in COOL and HEAT modes only."), ESPHOME_LOG_LEVEL_WARN, __LINE__);
-                        }
-                        */
+                        cmd.fanMute = AC_FANMUTE_OFF;
+                        this->set_custom_fan_mode_(custom_fan_mode);
                     }
-                    else if (customfanmode == Constants::MUTE)
+                    else if (custom_fan_mode == Constants::MUTE)
                     {
                         // MUTE fan mode is suitable in FAN mode only for Rovex air conditioner.
                         // In COOL mode AC receives command without any changes.
                         // May be other AUX-based air conditioners do the same.
-                        // if (                     cmd.mode == AC_MODE_FAN
-                        //        or _current_ac_state.mode == AC_MODE_FAN) {
-
                         hasCommand = true;
                         cmd.fanMute = AC_FANMUTE_ON;
-                        cmd.fanTurbo = AC_FANTURBO_OFF; // зависимость от fanmute
-                        this->custom_fan_mode = customfanmode;
-                        //} else {
-                        //    _debugMsg(F("MUTE fan mode is suitable in FAN mode only."), ESPHOME_LOG_LEVEL_WARN, __LINE__);
-                        //}
+                        cmd.fanTurbo = AC_FANTURBO_OFF;
+                        this->set_custom_fan_mode_(custom_fan_mode);
                     }
                 }
 
@@ -3100,20 +3078,18 @@ namespace esphome
                         break;
                     }
                 }
-                else if (call.get_custom_preset().has_value())
+                else if (call.has_custom_preset())
                 {
-                    std::string custom_preset = *call.get_custom_preset();
-
+                    auto custom_preset = call.get_custom_preset();
                     if (custom_preset == Constants::CLEAN)
                     {
                         // режим очистки кондиционера, включается (или должен включаться) при AC_POWER_OFF
-                        // TODO: надо отдебажить выключение этого режима
                         if (cmd.power == AC_POWER_OFF or _current_ac_state.power == AC_POWER_OFF)
                         {
                             hasCommand = true;
                             cmd.clean = AC_CLEAN_ON;
-                            cmd.mildew = AC_MILDEW_OFF; // для логики пресетов
-                            this->custom_preset = custom_preset;
+                            cmd.mildew = AC_MILDEW_OFF;
+                            this->set_custom_preset_(Constants::CLEAN);
                         }
                         else
                         {
@@ -3127,10 +3103,9 @@ namespace esphome
                         {
                             hasCommand = true;
                             cmd.health = AC_HEALTH_ON;
-                            // cmd.health_status = AC_HEALTH_STATUS_ON;  // GK: статус кондей сам поднимает
-                            cmd.fanTurbo = AC_FANTURBO_OFF; // зависимость от health
-                            cmd.fanMute = AC_FANMUTE_OFF;   // зависимость от health
-                            cmd.sleep = AC_SLEEP_OFF;       // для логики пресетов
+                            cmd.fanTurbo = AC_FANTURBO_OFF;
+                            cmd.fanMute = AC_FANMUTE_OFF;
+                            cmd.sleep = AC_SLEEP_OFF;
 
                             if (cmd.mode == AC_MODE_COOL ||
                                 cmd.mode == AC_MODE_HEAT ||
@@ -3146,7 +3121,7 @@ namespace esphome
                             {
                                 cmd.fanSpeed = AC_FANSPEED_MEDIUM; // зависимость от health
                             }
-                            this->custom_preset = custom_preset;
+                            this->set_custom_preset_(Constants::HEALTH);
                         }
                         else
                         {
@@ -3165,12 +3140,11 @@ namespace esphome
                         // у меня пульт отправляет 5 посылок и на включение и на выключение, но реагирует на эту кнопку
                         // только в режиме POWER_OFF
 
-                        // TODO: надо уточнить, в каких режимах штатно включается этот режим у кондиционера
                         cmd.mildew = AC_MILDEW_ON;
                         cmd.clean = AC_CLEAN_OFF; // для логики пресетов
 
                         hasCommand = true;
-                        this->custom_preset = custom_preset;
+                        this->set_custom_preset_(Constants::ANTIFUNGUS);
                     }
                 }
 
@@ -3186,8 +3160,16 @@ namespace esphome
                     // But the ROVEX IR-remote does not provide this features. Therefore this features haven't been tested.
                     // May be suitable for other models of AUX-based ACs.
                     case climate::CLIMATE_SWING_OFF:
+                        // Stop BOTH axes, but don't disturb vertical if it was already fixed (2..6)
                         cmd.louver.louver_h = AC_LOUVERH_OFF_ALTERNATIVE;
-                        cmd.louver.louver_v = AC_LOUVERV_OFF;
+                        if (_current_ac_state.louver.louver_v == AC_LOUVERV_SWING_UPDOWN) {
+                            // If vertical was swinging, stop it.
+                            cmd.louver.louver_v = AC_LOUVERV_OFF;
+                        } else {
+                            // Keep existing fixed position (2..6).
+                            cmd.louver.louver_v = _current_ac_state.louver.louver_v;
+                        }
+
                         hasCommand = true;
                         this->swing_mode = swingmode;
                         break;
@@ -3208,7 +3190,12 @@ namespace esphome
 
                     case climate::CLIMATE_SWING_HORIZONTAL:
                         cmd.louver.louver_h = AC_LOUVERH_SWING_LEFTRIGHT;
-                        cmd.louver.louver_v = AC_LOUVERV_OFF;
+                        // Stop vertical only if it was swinging; otherwise preserve prior fixed position
+                        if (_current_ac_state.louver.louver_v == AC_LOUVERV_SWING_UPDOWN) {
+                                cmd.louver.louver_v = AC_LOUVERV_OFF;
+                            } else {
+                                cmd.louver.louver_v = _current_ac_state.louver.louver_v;
+                            }
                         hasCommand = true;
                         this->swing_mode = swingmode;
                         break;
@@ -3776,21 +3763,11 @@ namespace esphome
             void set_optimistic(bool optimistic) { this->_optimistic = optimistic; }
             bool get_optimistic() { return this->_optimistic; }
 
-            // возможно функции get и не нужны, но вроде как должны быть
-            void set_supported_modes(const std::set<ClimateMode> &modes) { this->_supported_modes = modes; }
-            std::set<ClimateMode> get_supported_modes() { return this->_supported_modes; }
-
-            void set_supported_swing_modes(const std::set<ClimateSwingMode> &modes) { this->_supported_swing_modes = modes; }
-            std::set<ClimateSwingMode> get_supported_swing_modes() { return this->_supported_swing_modes; }
-
-            void set_supported_presets(const std::set<ClimatePreset> &presets) { this->_supported_presets = presets; }
-            const std::set<climate::ClimatePreset> &get_supported_presets() { return this->_supported_presets; }
-
-            void set_custom_presets(const std::set<std::string> &presets) { this->_supported_custom_presets = presets; }
-            const std::set<std::string> &get_supported_custom_presets() { return this->_supported_custom_presets; }
-
-            void set_custom_fan_modes(const std::set<std::string> &modes) { this->_supported_custom_fan_modes = modes; }
-            const std::set<std::string> &get_supported_custom_fan_modes() { return this->_supported_custom_fan_modes; }
+            void set_supported_modes(ClimateModeMask modes) { this->_supported_modes = modes; }
+            void set_supported_swing_modes(ClimateSwingModeMask modes) { this->_supported_swing_modes = modes; }
+            void set_supported_presets(ClimatePresetMask presets) { this->_supported_presets = presets; }
+            void set_custom_presets(std::initializer_list<const char *> presets) { this->_supported_custom_presets = presets; }
+            void set_custom_fan_modes(std::initializer_list<const char *> modes) { this->_supported_custom_fan_modes = modes; }
 
 #if defined(PRESETS_SAVING)
             void set_store_settings(bool store_settings) { this->_store_settings = store_settings; }
@@ -3808,8 +3785,7 @@ namespace esphome
                 // заполнение шаблона параметров отображения виджета
                 // GK: всё же похоже правильнее это делать тут, а не в initAC()
                 // initAC() в формируемом питоном коде вызывается до вызова aux_ac.set_supported_***() с установленными пользователем в конфиге параметрами
-                _traits.set_supports_current_temperature(true);
-                _traits.set_supports_two_point_target_temperature(false); // if the climate device's target temperature should be split in target_temperature_low and target_temperature_high instead of just the single target_temperature
+                _traits.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
 
                 _traits.set_supported_modes(this->_supported_modes);
                 _traits.set_supported_swing_modes(this->_supported_swing_modes);
@@ -3838,7 +3814,10 @@ namespace esphome
                 //_traits.add_supported_preset(ClimatePreset::CLIMATE_PRESET_SLEEP);
 
                 // if the climate device supports reporting the active current action of the device with the action property.
-                _traits.set_supports_action(this->_show_action);
+                if (this->_show_action)
+                {
+                    _traits.add_feature_flags(climate::CLIMATE_SUPPORTS_ACTION);
+                }
             };
 
             void loop() override
