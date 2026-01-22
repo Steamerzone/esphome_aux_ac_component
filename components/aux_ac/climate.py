@@ -26,6 +26,7 @@ from esphome.const import (
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_POWER_FACTOR,
     STATE_CLASS_MEASUREMENT,
+    __version__
 )
 from esphome.components.climate import (
     ClimateMode,
@@ -33,7 +34,7 @@ from esphome.components.climate import (
     ClimateSwingMode,
 )
 
-AUX_AC_FIRMWARE_VERSION = '0.2.17'
+AUX_AC_FIRMWARE_VERSION = '0.3.3'
 AC_PACKET_TIMEOUT_MIN = 150
 AC_PACKET_TIMEOUT_MAX = 600
 AC_POWER_LIMIT_MIN = 30
