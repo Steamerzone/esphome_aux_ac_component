@@ -74,6 +74,17 @@ ICON_DISPLAY = "mdi:clock-digital"
 CONF_PRESET_REPORTER = "preset_reporter"
 ICON_PRESET_REPORTER = "mdi:format-list-group"
 
+CONF_ACTUAL_FAN_SPEED = "actual_fan_speed"
+ICON_ACTUAL_FAN_SPEED = "mdi:fan"
+
+# Fan speed percentage configuration options
+CONF_OFF_PERCENT = "off_percent"
+CONF_MUTE_PERCENT = "mute_percent"
+CONF_LOW_PERCENT = "low_percent"
+CONF_MID_PERCENT = "mid_percent"
+CONF_HIGH_PERCENT = "high_percent"
+CONF_TURBO_PERCENT = "turbo_percent"
+
 CONF_VLOUVER_STATE = "vlouver_state"
 ICON_VLOUVER_STATE = "mdi:compare-vertical"
 
@@ -298,6 +309,23 @@ CONFIG_SCHEMA = cv.All(
                     cv.Optional(CONF_INTERNAL, default="true"): cv.boolean,
                 }
             ),
+            cv.Optional(CONF_ACTUAL_FAN_SPEED): sensor.sensor_schema(
+                unit_of_measurement=UNIT_PERCENT,
+                icon=ICON_ACTUAL_FAN_SPEED,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_POWER_FACTOR,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ).extend(
+                {
+                    cv.Optional(CONF_INTERNAL, default="true"): cv.boolean,
+                    cv.Optional(CONF_OFF_PERCENT): cv.int_range(min=0, max=100),
+                    cv.Optional(CONF_MUTE_PERCENT): cv.int_range(min=0, max=100),
+                    cv.Optional(CONF_LOW_PERCENT): cv.int_range(min=0, max=100),
+                    cv.Optional(CONF_MID_PERCENT): cv.int_range(min=0, max=100),
+                    cv.Optional(CONF_HIGH_PERCENT): cv.int_range(min=0, max=100),
+                    cv.Optional(CONF_TURBO_PERCENT): cv.int_range(min=0, max=100),
+                }
+            ),
             cv.Optional(CONF_INVERTER_POWER_LIMIT_VALUE): sensor.sensor_schema(
                 unit_of_measurement=UNIT_PERCENT,
                 icon=ICON_INVERTER_POWER_LIMIT_VALUE,
@@ -406,6 +434,24 @@ async def to_code(config):
         sens = await text_sensor.new_text_sensor(conf)
         cg.add(var.set_preset_reporter_sensor(sens))
 
+    if CONF_ACTUAL_FAN_SPEED in config:
+        conf = config[CONF_ACTUAL_FAN_SPEED]
+        sens = await sensor.new_sensor(conf)
+        cg.add(var.set_actual_fan_speed_sensor(sens))
+        # Set custom percentages if provided
+        if CONF_OFF_PERCENT in conf:
+            cg.add(var.set_fan_speed_off_percent(conf[CONF_OFF_PERCENT]))
+        if CONF_MUTE_PERCENT in conf:
+            cg.add(var.set_fan_speed_mute_percent(conf[CONF_MUTE_PERCENT]))
+        if CONF_LOW_PERCENT in conf:
+            cg.add(var.set_fan_speed_low_percent(conf[CONF_LOW_PERCENT]))
+        if CONF_MID_PERCENT in conf:
+            cg.add(var.set_fan_speed_mid_percent(conf[CONF_MID_PERCENT]))
+        if CONF_HIGH_PERCENT in conf:
+            cg.add(var.set_fan_speed_high_percent(conf[CONF_HIGH_PERCENT]))
+        if CONF_TURBO_PERCENT in conf:
+            cg.add(var.set_fan_speed_turbo_percent(conf[CONF_TURBO_PERCENT]))
+
     if CONF_INVERTER_POWER_LIMIT_VALUE in config:
         conf = config[CONF_INVERTER_POWER_LIMIT_VALUE]
         sens = await sensor.new_sensor(conf)
@@ -441,7 +487,10 @@ DISPLAY_ACTION_SCHEMA = maybe_simple_id(
 
 
 @automation.register_action(
-    "aux_ac.display_off", AirConDisplayOffAction, DISPLAY_ACTION_SCHEMA
+    "aux_ac.display_off",
+    AirConDisplayOffAction,
+    DISPLAY_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def display_off_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -449,7 +498,10 @@ async def display_off_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "aux_ac.display_on", AirConDisplayOnAction, DISPLAY_ACTION_SCHEMA
+    "aux_ac.display_on",
+    AirConDisplayOnAction,
+    DISPLAY_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def display_on_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -464,7 +516,10 @@ VLOUVER_ACTION_SCHEMA = maybe_simple_id(
 
 
 @automation.register_action(
-    "aux_ac.vlouver_stop", AirConVLouverStopAction, VLOUVER_ACTION_SCHEMA
+    "aux_ac.vlouver_stop",
+    AirConVLouverStopAction,
+    VLOUVER_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_stop_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -472,7 +527,10 @@ async def vlouver_stop_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "aux_ac.vlouver_swing", AirConVLouverSwingAction, VLOUVER_ACTION_SCHEMA
+    "aux_ac.vlouver_swing",
+    AirConVLouverSwingAction,
+    VLOUVER_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_swing_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -480,7 +538,10 @@ async def vlouver_swing_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "aux_ac.vlouver_top", AirConVLouverTopAction, VLOUVER_ACTION_SCHEMA
+    "aux_ac.vlouver_top",
+    AirConVLouverTopAction,
+    VLOUVER_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_top_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -488,7 +549,10 @@ async def vlouver_top_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "aux_ac.vlouver_middle_above", AirConVLouverMiddleAboveAction, VLOUVER_ACTION_SCHEMA
+    "aux_ac.vlouver_middle_above",
+    AirConVLouverMiddleAboveAction,
+    VLOUVER_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_middle_above_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -496,7 +560,10 @@ async def vlouver_middle_above_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "aux_ac.vlouver_middle", AirConVLouverMiddleAction, VLOUVER_ACTION_SCHEMA
+    "aux_ac.vlouver_middle",
+    AirConVLouverMiddleAction,
+    VLOUVER_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_middle_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -504,7 +571,10 @@ async def vlouver_middle_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "aux_ac.vlouver_middle_below", AirConVLouverMiddleBelowAction, VLOUVER_ACTION_SCHEMA
+    "aux_ac.vlouver_middle_below",
+    AirConVLouverMiddleBelowAction,
+    VLOUVER_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_middle_below_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -512,7 +582,10 @@ async def vlouver_middle_below_to_code(config, action_id, template_arg, args):
 
 
 @automation.register_action(
-    "aux_ac.vlouver_bottom", AirConVLouverBottomAction, VLOUVER_ACTION_SCHEMA
+    "aux_ac.vlouver_bottom",
+    AirConVLouverBottomAction,
+    VLOUVER_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_bottom_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -528,7 +601,10 @@ VLOUVER_SET_ACTION_SCHEMA = cv.Schema(
 
 
 @automation.register_action(
-    "aux_ac.vlouver_set", AirConVLouverSetAction, VLOUVER_SET_ACTION_SCHEMA
+    "aux_ac.vlouver_set",
+    AirConVLouverSetAction,
+    VLOUVER_SET_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def vlouver_set_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -546,7 +622,10 @@ POWER_LIMITATION_OFF_ACTION_SCHEMA = maybe_simple_id(
 
 
 @automation.register_action(
-    "aux_ac.power_limit_off", AirConPowerLimitationOffAction, POWER_LIMITATION_OFF_ACTION_SCHEMA
+    "aux_ac.power_limit_off",
+    AirConPowerLimitationOffAction,
+    POWER_LIMITATION_OFF_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def power_limit_off_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -562,7 +641,10 @@ POWER_LIMITATION_ON_ACTION_SCHEMA = cv.Schema(
 
 
 @automation.register_action(
-    "aux_ac.power_limit_on", AirConPowerLimitationOnAction, POWER_LIMITATION_ON_ACTION_SCHEMA
+    "aux_ac.power_limit_on",
+    AirConPowerLimitationOnAction,
+    POWER_LIMITATION_ON_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def power_limit_on_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
@@ -587,7 +669,10 @@ SEND_TEST_PACKET_ACTION_SCHEMA = maybe_simple_id(
 
 
 @automation.register_action(
-    "aux_ac.send_packet", AirConSendTestPacketAction, SEND_TEST_PACKET_ACTION_SCHEMA
+    "aux_ac.send_packet",
+    AirConSendTestPacketAction,
+    SEND_TEST_PACKET_ACTION_SCHEMA,
+    synchronous=True,
 )
 async def send_packet_to_code(config, action_id, template_arg, args):
     paren = await cg.get_variable(config[CONF_ID])
