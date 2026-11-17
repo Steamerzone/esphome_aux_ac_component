@@ -3,7 +3,7 @@
 // Source code and detailed instructions are available on github: https://github.com/GrKoR/esphome_aux_ac_component
 /// немного переработанная версия старого компонента
 #pragma once
-
+jlkjlkj
 #include <stdarg.h>
 #include <cinttypes>
 
